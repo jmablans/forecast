@@ -44,8 +44,10 @@
 #' @param upper Upper bounds for the parameters (alpha, beta, gamma, phi)
 #' @param opt.crit Optimization criterion. One of "mse" (Mean Square Error),
 #' "amse" (Average MSE over first \code{nmse} forecast horizons), "sigma"
-#' (Standard deviation of residuals), "mae" (Mean of absolute residuals), or
-#' "lik" (Log-likelihood, the default).
+#' (Standard deviation of residuals), "mae" (Mean of absolute residuals),
+#' "lik" (Log-likelihood, the default), or "linlin" (Linear loss). #JB
+#' @param cost cost associated to error (only used when \code{opt.crit} == 
+#' \code{"linlin"})
 #' @param nmse Number of steps for average multistep MSE (1<=\code{nmse}<=30).
 #' @param bounds Type of parameter space to impose: \code{"usual" } indicates
 #' all parameters must lie between specified lower and upper bounds;
@@ -93,11 +95,12 @@
 #' plot(forecast(fit))
 #'
 #' @export
+#' #JB add "cost"
 ets <- function(y, model="ZZZ", damped=NULL,
                 alpha=NULL, beta=NULL, gamma=NULL, phi=NULL, additive.only=FALSE, lambda=NULL, biasadj=FALSE,
                 lower=c(rep(0.0001, 3), 0.8), upper=c(rep(0.9999, 3), 0.98),
-                opt.crit=c("lik", "amse", "mse", "sigma", "mae"), nmse=3, bounds=c("both", "usual", "admissible"),
-                ic=c("aicc", "aic", "bic"), restrict=TRUE, allow.multiplicative.trend=FALSE,
+                opt.crit=c("lik", "amse", "mse", "sigma", "mae", "linlin"), cost= c(0, 0), nmse=3, bounds=c("both", "usual", "admissible"),
+                ic=c("aicc", "aic", "bic"),  restrict=TRUE, allow.multiplicative.trend=FALSE,
                 use.initial.values=FALSE, na.action = c("na.contiguous", "na.interp", "na.fail"), ...) {
   # dataname <- substitute(y)
   opt.crit <- match.arg(opt.crit)
@@ -175,12 +178,17 @@ ets <- function(y, model="ZZZ", damped=NULL,
 
       # Compute error measures
       np <- length(model$par) + 1
+      #JB check if erros negative?
+      c1 <- cost[1]
+      c2 <- cost[2]
       model$loglik <- -0.5 * e$lik
       model$aic <- e$lik + 2 * np
       model$bic <- e$lik + log(ny) * np
       model$aicc <- model$aic + 2 * np * (np + 1) / (ny - np - 1)
       model$mse <- e$amse[1]
       model$amse <- mean(e$amse)
+      #JB (vectorised, check if ifelse is better)
+      model$linlin <- ifelse(e$e >= 0, c1 * e$e, c2 * e$e)
 
       # Compute states, fitted values and residuals
       tsp.y <- tsp(y)
@@ -1085,6 +1093,7 @@ lik <- function(par, y, nstate, errortype, trendtype, seasontype, damped, par.no
   #      cat("lik: ", e$lik, "\n")
   #    points(alpha,e$lik,col=2)
 
+  #JB add linlin
   if (opt.crit == "lik") {
     return(e$lik)
   } else if (opt.crit == "mse") {
@@ -1095,6 +1104,8 @@ lik <- function(par, y, nstate, errortype, trendtype, seasontype, damped, par.no
     return(mean(e$e ^ 2))
   } else if (opt.crit == "mae") {
     return(mean(abs(e$e)))
+  } else if (opt.crit == "linlin") {
+    return(ifelse(e$e > 0, c1 * e$e, c2 * e$e))
   }
 }
 

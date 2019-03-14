@@ -5,7 +5,7 @@
 ## test enables a subset of x and f to be tested.
 # MASE: d is the # of differencing
 # MASE: D is the # of seasonal differencing
-testaccuracy <- function(f, x, test, d, D) {
+testaccuracy <- function(f, x, test, d, D, ...) {
   dx <- getResponse(f)
   if (is.data.frame(x)) {
     responsevar <- as.character(formula(f$model))[2]
@@ -57,8 +57,24 @@ testaccuracy <- function(f, x, test, d, D) {
   mae <- mean(abs(error), na.rm = TRUE)
   mape <- mean(abs(pe), na.rm = TRUE)
   mpe <- mean(pe, na.rm = TRUE)
-  out <- c(me, sqrt(mse), mae, mpe, mape)
-  names(out) <- c("ME", "RMSE", "MAE", "MPE", "MAPE")
+  #JB
+  Calculate_linlin_loss <-  function(error, na.rm = TRUE, c1, c2){
+    if(na.rm){
+      na.remove(error)
+    }
+    for (i in 1:length(error)){
+      if(error[i] >= 0){
+        linlin[i] <- c1 * error[i]
+        } else {
+        linlin[i] <- c2 * error[i]
+        }
+    }
+  }
+  
+  linlin <- Calculate_linlin_loss(error, na.rm = TRUE, c1 = 1, c2 = 2)
+      
+  out <- c(me, sqrt(mse), mae, mpe, mape, linlin)
+  names(out) <- c("ME", "RMSE", "MAE", "MPE", "MAPE", "linlin")
 
   # Compute MASE if historical data available
   if (!is.null(dx)) {
@@ -102,7 +118,7 @@ testaccuracy <- function(f, x, test, d, D) {
 }
 
 
-trainingaccuracy <- function(f, test, d, D) {
+trainingaccuracy <- function(f, test, d, D, ...) {
   # Make sure x is an element of f when f is a fitted model rather than a forecast
   # if(!is.list(f))
   #  stop("f must be a forecast object or a time series model object.")
@@ -134,8 +150,11 @@ trainingaccuracy <- function(f, test, d, D) {
   mae <- mean(abs(res), na.rm = TRUE)
   mape <- mean(abs(pe), na.rm = TRUE)
   mpe <- mean(pe, na.rm = TRUE)
-  out <- c(me, sqrt(mse), mae, mpe, mape)
-  names(out) <- c("ME", "RMSE", "MAE", "MPE", "MAPE")
+  
+  linlin <- Calculate_linlin_loss(error, na.rm = TRUE, c1 = 1, c2 = 2)
+  
+  out <- c(me, sqrt(mse), mae, mpe, mape, linlin)
+  names(out) <- c("ME", "RMSE", "MAE", "MPE", "MAPE", "linlin")
 
   # Compute MASE if historical data available
   if (!is.null(dx)) {
@@ -193,7 +212,8 @@ trainingaccuracy <- function(f, test, d, D) {
 #'   \item MPE: Mean Percentage Error
 #'   \item MAPE: Mean Absolute Percentage Error
 #'   \item MASE: Mean Absolute Scaled Error
-#'   \item ACF1: Autocorrelation of errors at lag 1.
+#'   \item ACF1: Autocorrelation of errors at lag 1
+#'   \item linlin: asymetric linear loss
 #' }
 #' By default, the MASE calculation is scaled using MAE of training set naive
 #' forecasts for non-seasonal time series, training set seasonal naive forecasts
