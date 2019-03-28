@@ -22,7 +22,7 @@ public:
 			int p_nmse, std::string p_bounds, int p_m,
 			bool p_optAlpha, bool p_optBeta, bool p_optGamma, bool p_optPhi,
 			bool p_givenAlpha, bool p_givenBeta, bool p_givenGamma, bool p_givenPhi,
-			double alpha, double beta, double gamma, double phi);
+			double alpha, double beta, double gamma, double phi, double p_kc1, double p_kc2);
 
 	double getObjVal() { return(objval); };
 
@@ -55,7 +55,7 @@ private:
 	std::vector<double> e;
 	std::vector<double> amse;
 
-	double lik, objval;
+	double lik, objval, kc1, kc2;
 
 	bool optAlpha, optBeta, optGamma, optPhi, givenAlpha, givenBeta, givenGamma, givenPhi;
 

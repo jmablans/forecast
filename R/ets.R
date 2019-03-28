@@ -47,7 +47,8 @@
 #' (Standard deviation of residuals), "mae" (Mean of absolute residuals),
 #' "lik" (Log-likelihood, the default), or "linlin" (Linear loss). #JB
 #' @param cost cost associated to error (only used when \code{opt.crit} == 
-#' \code{"linlin"})
+#' \code{"linlin"}); vector of lengt two where first element is cost associated 
+#' positive error and second element is cost associated to negative error.
 #' @param nmse Number of steps for average multistep MSE (1<=\code{nmse}<=30).
 #' @param bounds Type of parameter space to impose: \code{"usual" } indicates
 #' all parameters must lie between specified lower and upper bounds;
@@ -99,13 +100,17 @@
 ets <- function(y, model="ZZZ", damped=NULL,
                 alpha=NULL, beta=NULL, gamma=NULL, phi=NULL, additive.only=FALSE, lambda=NULL, biasadj=FALSE,
                 lower=c(rep(0.0001, 3), 0.8), upper=c(rep(0.9999, 3), 0.98),
-                opt.crit=c("lik", "amse", "mse", "sigma", "mae", "linlin"), cost= c(0, 0), nmse=3, bounds=c("both", "usual", "admissible"),
+                opt.crit=c("lik", "amse", "mse", "sigma", "mae", "linlin"), cost=c(0, 0), nmse=3, bounds=c("both", "usual", "admissible"),
                 ic=c("aicc", "aic", "bic"),  restrict=TRUE, allow.multiplicative.trend=FALSE,
                 use.initial.values=FALSE, na.action = c("na.contiguous", "na.interp", "na.fail"), ...) {
   # dataname <- substitute(y)
   opt.crit <- match.arg(opt.crit)
   bounds <- match.arg(bounds)
   ic <- match.arg(ic)
+  # JB
+  kc1 <- cost[1]
+  kc2 <- cost[2]
+  
   if(!is.function(na.action)){
     na.fn_name <- match.arg(na.action)
     na.action <- get(na.fn_name)
@@ -178,9 +183,6 @@ ets <- function(y, model="ZZZ", damped=NULL,
 
       # Compute error measures
       np <- length(model$par) + 1
-      #JB check if erros negative?
-      c1 <- cost[1]
-      c2 <- cost[2]
       model$loglik <- -0.5 * e$lik
       model$aic <- e$lik + 2 * np
       model$bic <- e$lik + log(ny) * np
@@ -188,7 +190,21 @@ ets <- function(y, model="ZZZ", damped=NULL,
       model$mse <- e$amse[1]
       model$amse <- mean(e$amse)
       #JB (vectorised, check if ifelse is better)
-      model$linlin <- ifelse(e$e >= 0, c1 * e$e, c2 * e$e)
+      
+      Calculate_linlin_loss <-  function(error, na.rm = TRUE, kc1, kc2){
+        if(na.rm){
+          error <- error[!is.na(error)]
+        }
+        for (i in 1:length(error)){
+          if(error[i] >= 0){
+            linlin[i] <- kc1 * error[i]
+          } else {
+            linlin[i] <- kc2 * error[i]
+          }
+        }
+      }
+        
+      model$linlin <- Calculate_linlin_loss(e$e, kc1, kc2)
 
       # Compute states, fitted values and residuals
       tsp.y <- tsp(y)
@@ -422,8 +438,9 @@ ets <- function(y, model="ZZZ", damped=NULL,
             next
           }
           fit <- etsmodel(
-            y, errortype[i], trendtype[j], seasontype[k], damped[l], alpha, beta, gamma, phi,
-            lower = lower, upper = upper, opt.crit = opt.crit, nmse = nmse, bounds = bounds, ...
+            y, errortype[i], trendtype[j], seasontype[k], damped[l], alpha, beta, 
+            gamma, phi, lower = lower, upper = upper, opt.crit = opt.crit, 
+            nmse = nmse, bounds = bounds, ...
           )
           fit.ic <- switch(ic, aic = fit$aic, bic = fit$bic, aicc = fit$aicc)
           if (!is.na(fit.ic)) {
@@ -654,8 +671,9 @@ etsmodel <- function(y, errortype, trendtype, seasontype, damped,
 
   env <- etsTargetFunctionInit(
     par = par, y = y, nstate = nstate, errortype = errortype, trendtype = trendtype,
-    seasontype = seasontype, damped = damped, par.noopt = par.noopt, lowerb = lower, upperb = upper,
-    opt.crit = opt.crit, nmse = as.integer(nmse), bounds = bounds, m = m, pnames = names(par), pnames2 = names(par.noopt)
+    seasontype = seasontype, damped = damped, par.noopt = par.noopt, lowerb = lower, 
+    upperb = upper, opt.crit = opt.crit, nmse = as.integer(nmse), bounds = bounds, 
+    m = m, pnames = names(par), pnames2 = names(par.noopt), kc1 = kc1, kc2 = kc1,  # JB
   )
 
   fred <- .Call(
@@ -715,6 +733,7 @@ etsmodel <- function(y, errortype, trendtype, seasontype, damped,
 
   mse <- e$amse[1]
   amse <- mean(e$amse)
+  linlin <- Calculate_linlin_loss(e$e)
 
   states <- ts(e$states, frequency = tsp.y[3], start = tsp.y[1] - 1 / tsp.y[3])
   colnames(states)[1] <- "l"
@@ -735,14 +754,14 @@ etsmodel <- function(y, errortype, trendtype, seasontype, damped,
   }
 
   return(list(
-    loglik = -0.5 * e$lik, aic = aic, bic = bic, aicc = aicc, mse = mse, amse = amse, fit = fred, residuals = ts(e$e, frequency = tsp.y[3], start = tsp.y[1]), fitted = ts(fits, frequency = tsp.y[3], start = tsp.y[1]),
+    loglik = -0.5 * e$lik, aic = aic, bic = bic, aicc = aicc, mse = mse, amse = amse, linlin = linlin, fit = fred, residuals = ts(e$e, frequency = tsp.y[3], start = tsp.y[1]), fitted = ts(fits, frequency = tsp.y[3], start = tsp.y[1]),
     states = states, par = fit.par
   ))
 }
 
 
 etsTargetFunctionInit <- function(par, y, nstate, errortype, trendtype, seasontype, damped, par.noopt, lowerb, upperb,
-                                  opt.crit, nmse, bounds, m, pnames, pnames2) {
+                                  opt.crit, nmse, bounds, m, pnames, pnames2, kc1, kc2) {
   names(par) <- pnames
   names(par.noopt) <- pnames2
   alpha <- c(par["alpha"], par.noopt["alpha"])["alpha"]
@@ -839,12 +858,13 @@ etsTargetFunctionInit <- function(par, y, nstate, errortype, trendtype, seasonty
 
   res <- .Call(
     "etsTargetFunctionInit", y = y, nstate = nstate, errortype = switch(errortype, "A" = 1, "M" = 2),
-    trendtype = switch(trendtype, "N" = 0, "A" = 1, "M" = 2), seasontype = switch(seasontype, "N" = 0, "A" = 1, "M" = 2),
+    trendtype = switch(trendtype, "N" = 0, "A" = 1, "M" = 2), 
+    seasontype = switch(seasontype, "N" = 0, "A" = 1, "M" = 2),
     damped = damped, lowerb = lowerb, upperb = upperb,
     opt.crit = opt.crit, nmse = as.integer(nmse), bounds = bounds, m = m,
     optAlpha, optBeta, optGamma, optPhi,
     givenAlpha, givenBeta, givenGamma, givenPhi,
-    alpha, beta, gamma, phi, env, PACKAGE = "forecast"
+    alpha, beta, gamma, phi, kc1 = kc1, kc2 = kc2, env, PACKAGE = "forecast"
   )
   res
 }
@@ -1105,7 +1125,7 @@ lik <- function(par, y, nstate, errortype, trendtype, seasontype, damped, par.no
   } else if (opt.crit == "mae") {
     return(mean(abs(e$e)))
   } else if (opt.crit == "linlin") {
-    return(ifelse(e$e > 0, c1 * e$e, c2 * e$e))
+    return(ifelse(e$e > 0, kc1 * e$e, kc2 * e$e))
   }
 }
 

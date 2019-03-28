@@ -5,6 +5,21 @@
 ## test enables a subset of x and f to be tested.
 # MASE: d is the # of differencing
 # MASE: D is the # of seasonal differencing
+
+#JB
+Calculate_linlin_loss <-  function(error, na.rm = TRUE, kc1, kc2){
+  if(na.rm){
+    error <- error[!is.na(error)]
+  }
+  for (i in 1:length(error)){
+    if(error[i] >= 0){
+      linlin[i] <- kc1 * error[i]
+    } else {
+      linlin[i] <- kc2 * error[i]
+    }
+  }
+}
+
 testaccuracy <- function(f, x, test, d, D, ...) {
   dx <- getResponse(f)
   if (is.data.frame(x)) {
@@ -57,21 +72,8 @@ testaccuracy <- function(f, x, test, d, D, ...) {
   mae <- mean(abs(error), na.rm = TRUE)
   mape <- mean(abs(pe), na.rm = TRUE)
   mpe <- mean(pe, na.rm = TRUE)
-  #JB
-  Calculate_linlin_loss <-  function(error, na.rm = TRUE, c1, c2){
-    if(na.rm){
-      na.remove(error)
-    }
-    for (i in 1:length(error)){
-      if(error[i] >= 0){
-        linlin[i] <- c1 * error[i]
-        } else {
-        linlin[i] <- c2 * error[i]
-        }
-    }
-  }
   
-  linlin <- Calculate_linlin_loss(error, na.rm = TRUE, c1 = 1, c2 = 2)
+  linlin <- Calculate_linlin_loss(error, na.rm = TRUE, kc1 = 1, kc2 = 2)
       
   out <- c(me, sqrt(mse), mae, mpe, mape, linlin)
   names(out) <- c("ME", "RMSE", "MAE", "MPE", "MAPE", "linlin")
@@ -151,7 +153,7 @@ trainingaccuracy <- function(f, test, d, D, ...) {
   mape <- mean(abs(pe), na.rm = TRUE)
   mpe <- mean(pe, na.rm = TRUE)
   
-  linlin <- Calculate_linlin_loss(error, na.rm = TRUE, c1 = 1, c2 = 2)
+  linlin <- Calculate_linlin_loss(res, na.rm = TRUE, kc1 = 1, kc2 = 2)
   
   out <- c(me, sqrt(mse), mae, mpe, mape, linlin)
   names(out) <- c("ME", "RMSE", "MAE", "MPE", "MAPE", "linlin")
@@ -311,14 +313,14 @@ accuracy.default <- function(f, x, test=NULL, d=NULL, D=NULL, ...) {
 
 
   if (trainset) {
-    trainout <- trainingaccuracy(f, test, d, D)
+    trainout <- trainingaccuracy(f, test, d, D, kc1, kc2)
     trainnames <- names(trainout)
   }
   else {
     trainnames <- NULL
   }
   if (testset) {
-    testout <- testaccuracy(f, x, test, d, D)
+    testout <- testaccuracy(f, x, test, d, D, kc1, kc2)
     testnames <- names(testout)
   }
   else {
@@ -342,6 +344,7 @@ accuracy.default <- function(f, x, test=NULL, d=NULL, D=NULL, ...) {
   if (!trainset) {
     out <- out[2, , drop = FALSE]
   }
+
   return(out)
 }
 

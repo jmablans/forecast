@@ -16,12 +16,12 @@
 // to this object with name "ets.xptr"
 // to the environment submitted as p_rho
 //
-RcppExport SEXP etsTargetFunctionInit(SEXP p_y, SEXP p_nstate, SEXP p_errortype, SEXP p_trendtype,
-		SEXP p_seasontype, SEXP p_damped, SEXP p_lower, SEXP p_upper,
-		SEXP p_opt_crit, SEXP p_nmse, SEXP p_bounds, SEXP p_m,
-		SEXP p_optAlpha, SEXP p_optBeta, SEXP p_optGamma, SEXP p_optPhi,
-		SEXP p_givenAlpha, SEXP p_givenBeta, SEXP p_givenGamma, SEXP p_givenPhi,
-		SEXP p_alpha, SEXP p_beta, SEXP p_gamma, SEXP p_phi, SEXP p_rho) {
+RcppExport SEXP etsTargetFunctionInit(SEXP p_y, SEXP p_nstate, SEXP p_errortype, 
+    SEXP p_trendtype, SEXP p_seasontype, SEXP p_damped, SEXP p_lower, SEXP p_upper,
+		SEXP p_opt_crit, SEXP p_nmse, SEXP p_bounds, SEXP p_m, SEXP p_optAlpha, 
+		SEXP p_optBeta, SEXP p_optGamma, SEXP p_optPhi, SEXP p_givenAlpha, SEXP p_givenBeta, 
+		SEXP p_givenGamma, SEXP p_givenPhi, SEXP p_alpha, SEXP p_beta, SEXP p_gamma, 
+		SEXP p_phi, SEXP p_rho, SEXP p_kc1, SEXP p_kc2) {
 
 	BEGIN_RCPP;
 
@@ -60,12 +60,15 @@ RcppExport SEXP etsTargetFunctionInit(SEXP p_y, SEXP p_nstate, SEXP p_errortype,
 	double beta = Rcpp::as<double>(p_beta);
 	double gamma = Rcpp::as<double>(p_gamma);
 	double phi = Rcpp::as<double>(p_phi);
+	//JB
+	double kc1 = Rcpp::as<double>(p_kc1);
+	double kc2 = Rcpp::as<double>(p_kc2);
 
 
 	sp->init(y, nstate, errortype, trendtype, seasontype, damped, lower, upper, opt_crit,
 			nmse, bounds, m, optAlpha, optBeta, optGamma, optPhi,
 			givenAlpha, givenBeta, givenGamma, givenPhi,
-			alpha, beta, gamma, phi);
+			alpha, beta, gamma, phi, kc1, kc2);
 
 	Rcpp::Environment e(p_rho);
 	e["ets.xptr"] = Rcpp::XPtr<EtsTargetFunction>( sp, true );

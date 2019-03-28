@@ -14,7 +14,7 @@ void EtsTargetFunction::init(std::vector<double> & p_y, int p_nstate, int p_erro
 		int p_nmse, std::string p_bounds, int p_m,
 		bool p_optAlpha, bool p_optBeta, bool p_optGamma, bool p_optPhi,
 		bool p_givenAlpha, bool p_givenBeta, bool p_givenGamma, bool p_givenPhi,
-		double alpha, double beta, double gamma, double phi) {
+		double alpha, double beta, double gamma, double phi, double p_kc1, double p_kc2) {
 
 	this->y = p_y;
 	this->n = this->y.size();
@@ -43,6 +43,8 @@ void EtsTargetFunction::init(std::vector<double> & p_y, int p_nstate, int p_erro
 	this->givenBeta = p_givenBeta;
 	this->givenGamma = p_givenGamma;
 	this->givenPhi = p_givenPhi;
+	this->kc1 = p_kc1;
+	this->kc2 = p_kc2;
 
 /*		Rprintf("optAlpha: %d\n", optAlpha);
 		Rprintf("optBeta: %d\n", optBeta);
@@ -206,6 +208,29 @@ void EtsTargetFunction::eval(const double* p_par, int p_par_length) {
 			mean+=fabs(e[i])/ne;
 		}
 		this->objval=mean;
+
+	}
+
+	else if(this->opt_crit=="linlin") {
+		//return(cost linlin)))
+
+		double cost=0;
+		int ne=e.size();
+		for(int i=0;i<ne;i++) {
+			// if (e[i] >0) do cost += c1* e[i]
+			//else cost += c2 * e[i]
+			// cost+=fabs(e[i])/ne;
+			if ( e[i] >= 0)
+			{
+				 cost += kc1 * e[i];
+			}
+			else
+			{
+				cost += kc2 * e[i];
+			}
+			
+		}
+		this->objval=cost;
 
 	}
 
